@@ -6,7 +6,6 @@ import numpy as np
 import torch
 
 from torch.utils.data import Dataset
-from PIL import Image
 import torchvision.transforms as transforms
 
 import matplotlib.pyplot as plt
@@ -15,6 +14,7 @@ import matplotlib.patches as patches
 from skimage.transform import resize
 
 import sys
+import cv2
 
 class ImageFolder(Dataset):
     def __init__(self, folder_path, img_size=416):
@@ -44,6 +44,70 @@ class ImageFolder(Dataset):
 
     def __len__(self):
         return len(self.files)
+
+class Persons(Dataset):
+    def __init__(self, list_path, img_size=416):
+        with open(list_path, 'r') as file:
+            self.img_files = file.readlines()
+        self.label_files = [path.replace('images', 'labels').replace('.png', '.txt').replace('.jpg', '.txt') for path in self.img_files]
+        self.img_shape = (img_size, img_size)
+        self.max_objects = 50
+    def __getitem__(self, index):
+        img_path = self.img_files[index % len(self.img_files)].rstrip()
+        img=cv2.imread(img_path)
+        while img is None :
+            index += 1
+            img_path = self.img_files[index % len(self.img_files)].rstrip()
+            img=cv2.imread(img_path)
+
+        img=cv2.cvtColor(img, cv2.COLOR_RGB2BGR, img)
+        h, w = img.shape[:2]
+        #if h == w: return cv2.resize(img, (self.img_shape, self.img_shape), cv2.INTER_AREA)
+        if h > w: dif = h
+        else:     dif = w
+        x_pos = int((dif - w)/2.)
+        y_pos = int((dif - h)/2.)
+
+        #img=cv2.copyMakeBorder(img, y_pos, y_pos, x_pos, x_pos, cv2.BORDER_CONSTANT,value=(128,128,128))
+
+        mask = np.zeros((dif, dif, 3), dtype=img.dtype)+128
+        mask[y_pos:y_pos+h, x_pos:x_pos+w, :] = img[:h, :w, :]
+        
+        img=cv2.resize(mask, (self.img_shape[0], self.img_shape[1]), cv2.INTER_AREA)/255.
+        img=img.transpose((2,0,1))
+        
+        img = torch.from_numpy(img).float()
+
+        label_path = self.label_files[index % len(self.img_files)].rstrip()
+
+        labels = None
+        if os.path.exists(label_path):
+            labels = np.loadtxt(label_path).reshape(-1, 5)
+            # Extract coordinates for unpadded + unscaled image
+            x1 = w * (labels[:, 1] - labels[:, 3]/2)
+            y1 = h * (labels[:, 2] - labels[:, 4]/2)
+            x2 = w * (labels[:, 1] + labels[:, 3]/2)
+            y2 = h * (labels[:, 2] + labels[:, 4]/2)
+            # Adjust for added padding
+            x1 += x_pos
+            y1 += y_pos
+            x2 += x_pos
+            y2 += y_pos
+            # Calculate ratios from coordinates
+            labels[:, 1] = ((x1 + x2) / 2) / dif
+            labels[:, 2] = ((y1 + y2) / 2) / dif
+            labels[:, 3] *= w / dif
+            labels[:, 4] *= h / dif
+        labels=labels[labels[:,0]==0.0]
+        # Fill matrix
+        filled_labels = np.zeros((self.max_objects, 5))
+        if labels is not None:
+            filled_labels[range(len(labels))[:self.max_objects]] = labels[:self.max_objects]
+        filled_labels = torch.from_numpy(filled_labels)
+        return img_path, img, filled_labels
+      
+    def __len__(self):
+        return len(self.img_files)
 
 
 class ListDataset(Dataset):
