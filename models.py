@@ -145,7 +145,7 @@ class YOLOLayer(nn.Module):
         w = prediction[..., 2]  # Width
         h = prediction[..., 3]  # Height
         pred_conf = torch.sigmoid(prediction[..., 4])  # Conf
-        pred_cls = torch.sigmoid(prediction[..., 5:])  # Cls pred.
+        #pred_cls = torch.sigmoid(prediction[..., 5:])  # Cls pred.
 
         # Calculate offsets for each grid
         grid_x = torch.arange(nG).repeat(nG, 1).view([1, 1, nG, nG]).type(FloatTensor)
@@ -169,10 +169,10 @@ class YOLOLayer(nn.Module):
                 self.bce_loss = self.bce_loss.cuda()
                 self.ce_loss = self.ce_loss.cuda()
 
-            nGT, nCorrect, mask, conf_mask, tx, ty, tw, th, tconf, tcls = build_targets(
+            nGT, nCorrect, mask, conf_mask, tx, ty, tw, th, tconf = build_targets(
                 pred_boxes=pred_boxes.cpu().data,
                 pred_conf=pred_conf.cpu().data,
-                pred_cls=pred_cls.cpu().data,
+                #pred_cls=pred_cls.cpu().data,
                 target=targets.cpu().data,
                 anchors=scaled_anchors.cpu().data,
                 num_anchors=nA,
@@ -199,7 +199,7 @@ class YOLOLayer(nn.Module):
             tw = Variable(tw.type(FloatTensor), requires_grad=False)
             th = Variable(th.type(FloatTensor), requires_grad=False)
             tconf = Variable(tconf.type(FloatTensor), requires_grad=False)
-            tcls = Variable(tcls.type(LongTensor), requires_grad=False)
+            #tcls = Variable(tcls.type(LongTensor), requires_grad=False)
 
             # Get conf mask where gt and where there is no gt
             conf_mask_true = mask
@@ -213,8 +213,8 @@ class YOLOLayer(nn.Module):
             loss_conf = self.bce_loss(pred_conf[conf_mask_false], tconf[conf_mask_false]) + self.bce_loss(
                 pred_conf[conf_mask_true], tconf[conf_mask_true]
             )
-            loss_cls = (1 / nB) * self.ce_loss(pred_cls[mask], torch.argmax(tcls[mask], 1))
-            loss = loss_x + loss_y + loss_w + loss_h + loss_conf + loss_cls
+            #loss_cls = (1 / nB) * self.ce_loss(pred_cls[mask], torch.argmax(tcls[mask], 1))
+            loss = loss_x + loss_y + loss_w + loss_h + loss_conf #+ loss_cls
 
             return (
                 loss,
@@ -223,7 +223,7 @@ class YOLOLayer(nn.Module):
                 loss_w.item(),
                 loss_h.item(),
                 loss_conf.item(),
-                loss_cls.item(),
+                #loss_cls.item(),
                 recall,
                 precision,
             )
@@ -234,7 +234,7 @@ class YOLOLayer(nn.Module):
                 (
                     pred_boxes.view(nB, -1, 4) * stride,
                     pred_conf.view(nB, -1, 1),
-                    pred_cls.view(nB, -1, self.num_classes),
+                    #pred_cls.view(nB, -1, self.num_classes),
                 ),
                 -1,
             )

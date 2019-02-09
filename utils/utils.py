@@ -184,9 +184,7 @@ def non_max_suppression(prediction, num_classes, conf_thres=0.5, nms_thres=0.4):
     return output
 
 
-def build_targets(
-    pred_boxes, pred_conf, pred_cls, target, anchors, num_anchors, num_classes, grid_size, ignore_thres, img_dim
-):
+def build_targets(pred_boxes, pred_conf, target, anchors, num_anchors, num_classes, grid_size, ignore_thres, img_dim):
     nB = target.size(0)
     nA = num_anchors
     nC = num_classes
@@ -198,7 +196,7 @@ def build_targets(
     tw = torch.zeros(nB, nA, nG, nG)
     th = torch.zeros(nB, nA, nG, nG)
     tconf = torch.ByteTensor(nB, nA, nG, nG).fill_(0)
-    tcls = torch.ByteTensor(nB, nA, nG, nG, nC).fill_(0)
+    #tcls = torch.ByteTensor(nB, nA, nG, nG, nC).fill_(0)
 
     nGT = 0
     nCorrect = 0
@@ -239,18 +237,19 @@ def build_targets(
             tw[b, best_n, gj, gi] = math.log(gw / anchors[best_n][0] + 1e-16)
             th[b, best_n, gj, gi] = math.log(gh / anchors[best_n][1] + 1e-16)
             # One-hot encoding of label
-            target_label = int(target[b, t, 0])
-            tcls[b, best_n, gj, gi, target_label] = 1
+            #target_label = int(target[b, t, 0])
+            #tcls[b, best_n, gj, gi, target_label] = 1
             tconf[b, best_n, gj, gi] = 1
 
             # Calculate iou between ground truth and best matching prediction
             iou = bbox_iou(gt_box, pred_box, x1y1x2y2=False)
-            pred_label = torch.argmax(pred_cls[b, best_n, gj, gi])
+
+            #pred_label = torch.argmax(pred_cls[b, best_n, gj, gi])
             score = pred_conf[b, best_n, gj, gi]
-            if iou > 0.5 and pred_label == target_label and score > 0.5:
+            if iou > 0.5 and score > 0.5:
                 nCorrect += 1
 
-    return nGT, nCorrect, mask, conf_mask, tx, ty, tw, th, tconf, tcls
+    return nGT, nCorrect, mask, conf_mask, tx, ty, tw, th, tconf
 
 
 def to_categorical(y, num_classes):
