@@ -182,12 +182,6 @@ class YOLOLayer(nn.Module):
                 img_dim=self.image_dim,
             )
 
-            nProposals = int((pred_conf > 0.5).sum().item())
-            recall = float(nCorrect / nGT) if nGT else 1
-            try:
-                precision = float(nCorrect / nProposals)
-            except:
-                precision=0
 
             # Handle masks
             mask = Variable(mask.type(ByteTensor))
@@ -210,6 +204,7 @@ class YOLOLayer(nn.Module):
             loss_y = self.mse_loss(y[mask], ty[mask])
             loss_w = self.mse_loss(w[mask], tw[mask])
             loss_h = self.mse_loss(h[mask], th[mask])
+
             loss_conf = self.bce_loss(pred_conf[conf_mask_false], tconf[conf_mask_false]) + self.bce_loss(
                 pred_conf[conf_mask_true], tconf[conf_mask_true]
             )
@@ -222,10 +217,7 @@ class YOLOLayer(nn.Module):
                 loss_y.item(),
                 loss_w.item(),
                 loss_h.item(),
-                loss_conf.item(),
-                #loss_cls.item(),
-                recall,
-                precision,
+                loss_conf.item()
             )
 
         else:
